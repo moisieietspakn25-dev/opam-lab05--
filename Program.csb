@@ -1,0 +1,440 @@
+
+using System;
+using System.Collections.Generic;
+
+class IntStack
+{
+    private int[] items;
+    private int count;
+
+    public int Count => count;
+    public int Capacity => items.Length;
+
+    public IntStack(int capacity)
+    {
+        if (capacity < 1)
+            capacity = 1;
+
+        items = new int[capacity];
+        count = 0;
+    }
+
+    public void Push(int x)
+    {
+        if (count == items.Length)
+        {
+            int[] bigger = new int[items.Length * 2];
+            Array.Copy(items, bigger, count);
+            items = bigger;
+        }
+
+        items[count++] = x;
+    }
+
+    public int Pop()
+    {
+        if (count == 0)
+            throw new InvalidOperationException("Стек порожній.");
+
+        return items[--count];
+    }
+
+    public int Peek()
+    {
+        if (count == 0)
+            throw new InvalidOperationException("Стек порожній.");
+
+        return items[count - 1];
+    }
+}
+
+class Program
+{
+    const int N = 7;
+    const int K = 19;
+    const int A = 1;
+    const int B = 3;
+    const int C = 2;
+
+    static bool IsOpening(char ch)
+    {
+        return ch == '(' || ch == '[' || ch == '{' || ch == '<';
+    }
+
+    static bool IsClosing(char ch)
+    {
+        return ch == ')' || ch == ']' || ch == '}' || ch == '>';
+    }
+
+    static bool Matches(char open, char close)
+    {
+        return (open == '(' && close == ')') ||
+               (open == '[' && close == ']') ||
+               (open == '{' && close == '}') ||
+               (open == '<' && close == '>');
+    }
+
+    // Завдання 1: стандартний Stack.
+    static bool CheckBrackets(string text, out int errorIndex)
+    {
+        Stack<(char Symbol, int Index)> stack =
+            new Stack<(char, int)>();
+
+        bool inQuotes = false;
+
+        for (int i = 0; i < text.Length; i++)
+        {
+            char ch = text[i];
+
+            if (A == 2 && ch == '"')
+            {
+                inQuotes = !inQuotes;
+                continue;
+            }
+
+            if (A == 2 && inQuotes)
+                continue;
+
+            if (IsOpening(ch) &&
+                (A != 0 || ch != '<'))
+            {
+                stack.Push((ch, i));
+            }
+            else if (IsClosing(ch) &&
+                     (A != 0 || ch != '>'))
+            {
+                if (stack.Count == 0)
+                {
+                    errorIndex = i;
+                    return false;
+                }
+
+                var top = stack.Pop();
+
+                if (!Matches(top.Symbol, ch))
+                {
+                    errorIndex = i;
+                    return false;
+                }
+            }
+        }
+
+        if (inQuotes)
+        {
+            errorIndex = text.Length;
+            return false;
+        }
+
+        if (stack.Count > 0)
+        {
+            // Індекс першої незакритої дужки.
+            var remaining = stack.ToArray();
+            errorIndex = remaining[remaining.Length - 1].Index;
+            return false;
+        }
+
+        errorIndex = -1;
+        return true;
+    }
+
+    // Завдання 2: обчислення зворотного польського запису.
+    static bool EvaluateRpn(string expression, out double result,
+                            out string error)
+    {
+        Stack<double> stack = new Stack<double>();
+        result = 0;
+        error = "";
+
+        string[] tokens = expression.Split(
+            ' ', StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (string token in tokens)
+        {
+            if (double.TryParse(
+                token,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out double number))
+            {
+                stack.Push(number);
+                continue;
+            }
+
+            bool binaryOperator =
+                token == "+" || token == "-" ||
+                token == "*" || token == "/" ||
+                token == "min" || token == "max";
+
+            if (B == 1)
+                binaryOperator |= token == "%";
+
+            if (B == 2)
+                binaryOperator |= token == "^";
+
+            if (!binaryOperator)
+            {
+                error = "Невідомий токен: " + token;
+                return false;
+            }
+
+            if (stack.Count < 2)
+            {
+                error = "Недостатньо чисел для операції " + token;
+                return false;
+            }
+
+            double right = stack.Pop();
+            double left = stack.Pop();
+            double value;
+
+            switch (token)
+            {
+                case "+":
+                    value = left + right;
+                    break;
+                case "-":
+                    value = left - right;
+                    break;
+                case "*":
+                    value = left * right;
+                    break;
+                case "/":
+                    if (right == 0)
+                    {
+                        error = "Ділення на нуль.";
+                        return false;
+                    }
+                    value = left / right;
+                    break;
+                case "%":
+                    if (right == 0)
+                    {
+                        error = "Остача від ділення на нуль.";
+                        return false;
+                    }
+                    value = left % right;
+                    break;
+                case "^":
+                    value = Math.Pow(left, right);
+                    break;
+                case "min":
+                    value = Math.Min(left, right);
+                    break;
+                case "max":
+                    value = Math.Max(left, right);
+                    break;
+                default:
+                    error = "Невідома операція.";
+                    return false;
+            }
+
+            stack.Push(value);
+        }
+
+        if (stack.Count != 1)
+        {
+            error = "Некоректний вираз: зайві числа або порожній ввід.";
+            return false;
+        }
+
+        result = stack.Pop();
+        return true;
+    }
+
+    // Завдання 3: черги обслуговування.
+    static void SimulateQueue(int requestCount)
+    {
+        Console.WriteLine("\nЗавдання 3. Модель обслуговування");
+
+        if (requestCount <= 0)
+        {
+            Console.WriteLine("Заявок немає.");
+            Console.WriteLine("Максимальна довжина черги: 0");
+            return;
+        }
+
+        Random random = new Random(N);
+        Queue<(int Id, int Weight)> priority = new();
+        Queue<(int Id, int Weight)> regular = new();
+
+        for (int i = 1; i <= requestCount; i++)
+        {
+            int weight = random.Next(1, 10);
+
+            if (i % 3 == 0)
+                priority.Enqueue((i, weight));
+            else
+                regular.Enqueue((i, weight));
+        }
+
+        int maxQueue = priority.Count + regular.Count;
+        int currentTime = 0;
+
+        Console.WriteLine("№\tТип\tВага\tПочаток\tЗавершення");
+
+        while (priority.Count > 0 || regular.Count > 0)
+        {
+            (int Id, int Weight) request;
+
+            if (priority.Count > 0)
+                request = priority.Dequeue();
+            else if (regular.Count > 0)
+                request = regular.Dequeue();
+            else
+                break;
+
+            int start = currentTime;
+            currentTime += request.Weight;
+
+            string type = request.Id % 3 == 0
+                ? "Пріоритетна"
+                : "Звичайна";
+
+            Console.WriteLine(
+                $"{request.Id}\t{type}\t{request.Weight}\t" +
+                $"{start}\t\t{currentTime}");
+        }
+
+        Console.WriteLine(
+            $"Максимальна довжина черги: {maxQueue}");
+    }
+
+    // Завдання 4: перевірка дужок власним стеком.
+    static bool CheckBracketsCustom(string text, out int errorIndex)
+    {
+        IntStack stack = new IntStack(K % 4 + 2);
+
+        for (int i = 0; i < text.Length; i++)
+        {
+            char ch = text[i];
+
+            if (IsOpening(ch))
+            {
+                stack.Push(i);
+            }
+            else if (IsClosing(ch))
+            {
+                if (stack.Count == 0)
+                {
+                    errorIndex = i;
+                    return false;
+                }
+
+                int openingIndex = stack.Pop();
+
+                if (!Matches(text[openingIndex], ch))
+                {
+                    errorIndex = i;
+                    return false;
+                }
+            }
+        }
+
+        if (stack.Count > 0)
+        {
+            errorIndex = stack.Pop();
+
+            while (stack.Count > 0)
+            {
+                int index = stack.Pop();
+                if (index < errorIndex)
+                    errorIndex = index;
+            }
+
+            return false;
+        }
+
+        errorIndex = -1;
+        return true;
+    }
+
+    static void PrintBracketTest(string text)
+    {
+        bool valid = CheckBrackets(text, out int index);
+
+        Console.WriteLine(
+            $"\"{text}\" -> " +
+            (valid ? "збалансований" : $"помилка, індекс {index}"));
+    }
+
+    static void Main()
+    {
+        Console.WriteLine(
+            $"Варіант: N={N}, K={K}, a={A}, b={B}, c={C}");
+
+        Console.WriteLine("\nЗавдання 1. Перевірка дужок");
+
+        PrintBracketTest("(a[b]{c})");
+        PrintBracketTest("([)]");
+        PrintBracketTest(")(");
+        PrintBracketTest("((");
+        PrintBracketTest("");
+        PrintBracketTest("<<>>");
+
+        // K відкривальних і K-1 закривальних дужок.
+        string unbalanced = new string('(', K) +
+                            new string(')', K - 1);
+        PrintBracketTest(unbalanced);
+
+        Console.WriteLine("\nЗавдання 2. Зворотний польський запис");
+
+        string[] expressions =
+        {
+            "3 4 + 2 *",
+            "5 3 -",
+            "8 2 /",
+            "2 3 4 * +",
+            "5 0 /",
+            "5 2 * 9 + 0 +",
+            "",
+            "7 2",
+            "4 +",
+            "3 xyz +"
+        };
+
+        foreach (string expression in expressions)
+        {
+            if (EvaluateRpn(expression, out double result,
+                            out string error))
+            {
+                Console.WriteLine($"{expression} = {result}");
+            }
+            else
+            {
+                Console.WriteLine(
+                    $"\"{expression}\" -> Помилка: {error}");
+            }
+        }
+
+        int requestCount = 8 + K % 5;
+        SimulateQueue(requestCount);
+        SimulateQueue(0);
+
+        Console.WriteLine("\nЗавдання 4. Власний IntStack");
+
+        IntStack customStack = new IntStack(K % 4 + 2);
+
+        for (int i = 1; i <= K % 4 + 3; i++)
+        {
+            customStack.Push(i);
+            Console.WriteLine(
+                $"Push({i}): Count={customStack.Count}, " +
+                $"Capacity={customStack.Capacity}");
+        }
+
+        Console.WriteLine($"Peek: {customStack.Peek()}");
+        Console.WriteLine($"Pop: {customStack.Pop()}");
+
+        string customTest = "(a[b]{c})";
+
+        bool customValid =
+            CheckBracketsCustom(customTest, out int customIndex);
+
+        Console.WriteLine(
+            $"Власний стек: \"{customTest}\" -> " +
+            (customValid ? "збалансований" :
+             $"помилка, індекс {customIndex}"));
+
+        Console.WriteLine("\nПеревірка завершена.");
+    }
+}
